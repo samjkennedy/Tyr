@@ -1018,11 +1018,9 @@ impl Parser {
                     )),
                 }
             }
-            _ => {
-                Err(ParseError::InvalidPattern {
-                    span: expression_span,
-                })
-            }
+            _ => Err(ParseError::InvalidPattern {
+                span: expression_span,
+            }),
         }
     }
 
