@@ -1,0 +1,47 @@
+type Color : enum {
+    Red,
+    Green,
+    Blue,
+    Yellow,
+}
+
+fn match_color(c: Color) {
+    match (c) {
+        .Red => print(0);
+        .Green => print(1);
+        .Blue => print(2);
+        .Yellow => print(3);
+    }
+}
+
+fn block_match(c: Color): i32 {
+    match c {
+        .Red => {
+            print("your colour was Red!");
+            return 0;
+        }
+        .Green => {
+            print("your colour was Green!");
+            return 1;
+        }
+        _ => {
+            print("unknown colour!");
+            return -1;
+        }
+    }
+}
+
+fn main() {
+
+    c :: Color.Green;
+
+    match_color(.Red);
+    match_color(.Green);
+    match_color(.Blue);
+    match_color(.Yellow);
+    match_color(c);
+
+    print(block_match(.Red));
+    print(block_match(.Green));
+    print(block_match(.Blue));
+}

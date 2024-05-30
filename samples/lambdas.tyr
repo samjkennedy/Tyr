@@ -1,0 +1,23 @@
+uses std.chars;
+
+fn map(x: u32, f: (u32) -> u32): u32 {
+    return f(x);
+}
+
+fn foreach(xs: []i32, f: (i32) -> i32) {
+    for i in 0..xs.len {
+        xs[i] = f(xs[i]); 
+    }
+}
+
+fn main() {
+    a := [5]i32 {
+        1, 2, 3, 4, 5
+    };
+    
+    a.foreach((x: i32) -> x * 3);
+
+    for i in 0..5 {
+        print(a[i]);
+    }
+}   

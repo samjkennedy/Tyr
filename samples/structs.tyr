@@ -1,0 +1,38 @@
+type Vec : struct {
+    x: i32,
+    y: i32,
+}
+
+type Line : struct {
+    a: Vec,
+    b: Vec,
+}
+
+fn sqr_len(v: Vec) => v.x * v.x + v.y * v.y;
+
+fn main() {
+    x := 5;
+    v := Vec {
+        x, 
+        y: 4,
+    };
+    print(v.x);
+    print(v.y);
+
+    print(sqr_len(v));
+
+    v.x = 10;
+
+    print(v.x);
+    print(sqr_len(v));
+
+    line :: Line {
+        a: v,
+        b: Vec {
+            x: 5,
+            y: 6
+        }
+    };
+
+    print(line.b.x);
+}

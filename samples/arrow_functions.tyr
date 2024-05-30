@@ -1,0 +1,7 @@
+fn sum(a: i32, b: i32) => a + b;
+fn add_one(a: i32) => sum(a, 1);
+
+fn main() {
+    print(sum(4, 5));
+    print(add_one(4));
+}

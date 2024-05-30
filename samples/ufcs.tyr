@@ -1,0 +1,17 @@
+type Vec : struct {
+    x: f64,
+    y: f64,
+}
+
+fn get_x(v: ^Vec) => v.x;
+fn get_y(v: ^Vec) => v.y;
+fn sqr_len(v: ^Vec) => v.get_x() * v.get_x() + v.get_y() * v.get_y();
+
+fn main() {
+    v := Vec {
+        x: 3.0, y: 4.0
+    };
+    print(v.get_x());
+    print(v.sqr_len());
+
+}

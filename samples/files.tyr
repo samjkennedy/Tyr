@@ -1,0 +1,16 @@
+uses std.io;
+
+fn main(args: []string) {
+    {
+        f :: open(args[1], .Write);
+        defer f.close();
+        f.writeln("Hello from tyr!");
+        f.writeln("Hello from tyr again!");
+        f.write("Goodbye from tyr!");
+    }
+    
+    f :: open(args[1], .Read);
+    defer f.close();
+    
+    print(f.read_all());
+}

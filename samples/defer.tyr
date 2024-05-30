@@ -1,0 +1,29 @@
+fn add(a, b: i32): i32 {
+    defer {
+        print(a);
+    }
+    return a + b;
+}
+
+fn cond(a: i32) {
+    defer print("conditional!");
+
+    if a > 5 {
+        print(5);
+    } else {
+        print(6);
+    }
+}
+
+fn main() {
+    defer {
+        print("World!");
+        defer print("Another!");
+        print("hi");
+    }
+    print("Hello!");
+
+    print(add(10, 11));
+
+    cond(6);
+}

@@ -1,0 +1,17 @@
+fn main() {
+    x := 10;
+    b := true;
+
+    if (x & 5) != 1 {
+        print(x & 5);
+    } else {
+        print(x);
+    }
+
+    i := 0;
+    while i <= 10 {
+        print(i & 5);
+
+        i = i + 1;
+    }
+}

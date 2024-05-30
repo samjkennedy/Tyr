@@ -1,0 +1,17 @@
+type Dyn : struct {
+    len: i32,
+    data: ^i32
+}
+
+fn main() {
+
+    x := 10;
+    d := Dyn {
+        len: 1,
+        data: ^x
+    };
+
+    
+    print(d.data[0]);
+    print(d.data[1]);
+}

@@ -1,0 +1,4 @@
+fn is_alphabetic(c: char): bool {
+    point := c as u8;
+    return (point >= 65 && point <= 90) || (point >= 97 && point <= 122);
+}

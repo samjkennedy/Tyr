@@ -1,0 +1,9 @@
+fn sum(a, b: i32) => a + b;
+fn product(a, b: i32) =>  a * b;
+
+fn main() {
+    x, y :: 6;
+    
+    print(sum(x, y));
+    print(product(x, y));
+}

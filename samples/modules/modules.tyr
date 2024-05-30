@@ -1,0 +1,13 @@
+uses vec;
+
+fn main() {
+    v := Vec2 {
+        x: 16.0,
+        y: 9.0,
+    };
+
+    v.normalise();
+
+    print(v.x);
+    print(v.y);
+}
