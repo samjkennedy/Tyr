@@ -1,0 +1,17 @@
+fn print(){}
+
+fn get_int() => 10;
+
+fn main() {
+    x: i32 = 10 + 3 * 2;
+    y := (4 + x) % 2;
+    z :: get_int();
+
+    b: bool = true;
+
+    print(x);
+    print(y);
+    print(z);
+
+    z = y;
+}

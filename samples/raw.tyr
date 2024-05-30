@@ -1,0 +1,7 @@
+fn main() {
+    print("Hello from Tyr!");
+
+    raw {
+        "printf(\"Hello from raw c!\");"
+    }
+}

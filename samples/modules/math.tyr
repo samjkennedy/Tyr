@@ -1,0 +1,38 @@
+fn min(a, b: f64): f64 {
+    if (a < b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+fn max(a, b: f64): f64 {
+    if (a > b) {
+        return a;
+    } else {
+        return b;
+    }
+}
+
+fn sqrt(n: f64): f64 {
+    lo := min(1., n);
+    hi := max(1., n);
+    mid := 0.;
+
+    while ((100. * lo * lo) < n) {
+        lo = lo * 10.;
+    }
+
+    while ((0.01 * hi * hi) < n) {
+        hi = hi / 10.;
+    }
+
+    for i in 0..100 {
+        mid = (lo + hi) / 2.;
+        if mid * mid == n return mid;
+
+        if mid * mid > n hi = mid;
+        else lo = mid;
+    }
+    return mid;
+}

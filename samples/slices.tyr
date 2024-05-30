@@ -1,0 +1,40 @@
+fn print_all(sl: []i32) {
+    for i in sl {
+        print(i);
+    }
+}
+
+fn sum(sl: []i32): i32 {
+    total := 0;
+    for i in sl {
+        total = total + i;
+    }
+    return total;
+}
+
+fn nth(sl: []i32, i: i32): i32 {
+    return sl[i];
+}
+
+fn main() {
+    a :: [5]i32 {1, 2, 3, 4, 5};
+    b :: [3]i32 {9, 8, 7};
+
+    print_all(a);
+    print("-----");
+    print_all(b);
+    print("-----");
+
+    print(sum(a));
+    print("-----");
+
+    print(nth(a, 3));
+
+    print("-----");
+
+    s :: a[1..5];
+    print(s.len);
+    print("-----");
+
+    print_all(s);
+}

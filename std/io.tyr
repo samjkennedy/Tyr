@@ -1,0 +1,68 @@
+type Mode : enum {
+    Read, Write, Append,
+    Read_Binary, Write_Binary, Append_Binary,
+}
+
+type Metadata : struct {
+    size: u32,
+    // etc
+}
+
+type File : struct {
+    handle: FILE_HANDLE,
+    metadata: Metadata,
+}
+
+fn get_file_size(handle: FILE_HANDLE): u32 {
+    size: u32 = 0;
+    raw {
+        "fseek(handle, 0, SEEK_END);"
+        "size = ftell(handle);"
+        "fseek(handle, 0, SEEK_SET);"
+    }
+    return size;
+}
+
+fn open(path: string, mode: Mode): File {
+    mode_string := ""; //TODO: match expressions
+    match mode {
+        .Read => mode_string = "r";
+        .Write => mode_string = "w";
+        .Append => mode_string = "a";
+        .Read_Binary => mode_string = "rb";
+        .Write_Binary => mode_string = "wb";
+        .Append_Binary => mode_string = "ab";
+    }
+    handle :: fopen(path, mode_string);
+    metadata :: Metadata {
+        size: get_file_size(handle),
+    };
+    return File {
+        handle: handle,
+        metadata: metadata,
+    };
+}
+
+fn close(file: File) {
+    fclose(file.handle);
+}
+
+fn write(file: File, text: string) {
+    fwrite(text, 1, text.len, file.handle);
+}
+
+fn writeln(file: File, text: string) {
+    fwrite(text, 1, text.len, file.handle);
+    fwrite("\\n", 1, 1, file.handle);
+}
+
+fn read_all(file: File): string {
+    n := file.metadata.size;
+    handle := file.handle;
+    buf := ""; //TODO: prealloc string size, string.new(n) or something
+    raw {
+        "buf = malloc(n);"
+        "fread(buf, 1, n, handle);"
+    }
+    return buf;
+}

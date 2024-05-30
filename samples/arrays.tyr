@@ -1,0 +1,24 @@
+fn iter(arr: [4]i32) {
+    for i in arr {
+        print(i);
+    }
+}
+
+fn sum(arr: [4]i32): i32 {
+    sum := 0;
+    for i in arr {
+        sum = sum + i;
+    }
+    return sum;
+}
+
+fn main() {
+    a := [4]i32 {1, 2, 3, 4};
+    for i in a {
+        print(i);
+    }
+
+    iter(a);
+
+    print(sum(a));
+}

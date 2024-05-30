@@ -1,0 +1,18 @@
+type Foo : struct {
+    p: ^i32,
+}
+
+
+fn main() {
+    x: i32 = 10;
+    y: ^i32 = ^x;
+    print(y^);
+
+    f: Foo = Foo {
+        p: y
+    };
+
+    x = 3;
+
+    print(f.p^);
+}

@@ -1,0 +1,28 @@
+type Shape : union {
+    Point,
+    Circle{ radius: f64 },
+    Rectangle{ width, height: f64 },
+    Triangle{ base, height: f64 },
+}
+
+fn area(shape: Shape): f64 {
+    match shape {
+        .Point => return 0;
+        .Circle { radius } => return radius * radius * 3.1415;
+        .Rectangle { width, height } => return width * height;
+        .Triangle { base, height } => return base * height * 0.5;
+    }
+}
+
+fn main() {
+    p: Shape: .Point;
+    c: Shape = .Circle { radius: 3.0 };
+    r: Shape = .Rectangle { width: 4.0, height: 3.0 };
+
+    //calling a function on a variable!
+    print(p.area());
+    print(c.area());
+    print(r.area());
+
+    print(area(.Triangle { base: 3.0, height: 4.0 }));
+}

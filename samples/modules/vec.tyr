@@ -1,0 +1,24 @@
+uses math;
+
+type Vec2 : struct {
+    x: f64,
+    y: f64,
+}
+
+fn add(v1, v2: Vec2): Vec2 {
+    return Vec2 {
+        x: v1.x + v2.x,
+        y: v1.y + v2.y,
+    };
+}
+
+fn magnitude(v: Vec2): f64 {
+    return sqrt(v.x * v.x + v.y * v.y);
+}
+
+fn normalise(v: ^Vec2) {
+    mag :: magnitude(v^);
+
+    v.x = v.x / mag;
+    v.y = v.y / mag;
+}

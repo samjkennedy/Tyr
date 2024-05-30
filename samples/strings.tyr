@@ -1,0 +1,11 @@
+fn print_chars(s: string) {
+    for c in s {
+        print(c);
+    }
+}
+
+fn main() {
+    s :: "hello";
+    print(s);
+    print_chars(s);
+}

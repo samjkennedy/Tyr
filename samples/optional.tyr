@@ -1,0 +1,40 @@
+type Option : union {
+    None,
+    Some{ value: i32 },
+}
+
+fn print_option(opt: Option) {
+    match opt {
+        .None => print("none");
+        .Some{ value } => print(value);
+    }
+}
+
+fn map(opt: Option, f: (i32) -> i32): Option {
+    match opt {
+        .None => return .None;
+        .Some{ value } => return .Some{value: f(value)};
+    }
+}
+
+fn or_else(opt: Option, d: i32): i32 {
+    match opt {
+        .None => return d;
+        .Some{ value } => return value;
+    }
+}
+
+fn main() {
+    x: Option = .Some{ value: 20 };
+
+    print_option(x);
+    print_option(.None);
+
+    m := x.map((i: i32) -> i * 3);
+    print_option(m);
+
+    n := Option.None;
+    i: i32 = n.map((a: i32) -> a * 2).or_else(-1);
+
+    print(i);
+}

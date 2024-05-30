@@ -1,0 +1,6 @@
+fn main() {
+    a_number: i32 = 0;
+    while (a_number + 5 < 10) {
+        print(1);
+    }
+}

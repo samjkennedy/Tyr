@@ -1,0 +1,39 @@
+fn reduce(arr: []i32, f: (i32, i32) -> i32, acc: i32): i32 {
+    a := acc;
+    for i in arr {
+        a = f(a, i);
+    }
+    return a;
+}
+
+fn sum(a, b: i32) => a + b;
+fn product(a, b: i32) => a * b;
+
+fn main() {
+    array := [5]i32 {1, 2, 3, 4, 5};
+
+    s :: reduce(array, sum, 0);
+    print(s);
+    p :: reduce(array, product, 1);
+    print(p);
+
+    multi := [3][3]i32 {
+        [3]i32 {
+            1, 2, 3
+        },
+        [3]i32 {
+            4, 5, 6
+        },
+        [3]i32 {
+            7, 8, 9
+        }
+    };
+
+    flat := [3]i32 {
+        reduce(multi[0], sum, 0),
+        reduce(multi[1], sum, 0),
+        reduce(multi[2], sum, 0),
+    };
+    flatter := reduce(flat, sum, 0);
+    print(flatter);
+}

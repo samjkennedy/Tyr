@@ -1,0 +1,23 @@
+type Color : enum {
+    Red, Green, Blue
+}
+
+type TrafficLight : enum {
+    Red, Yellow, Green
+}
+
+fn main() {
+    c := Color.Red;
+    t: TrafficLight : .Yellow;
+
+    print(c);
+    print(t);
+
+    c = .Green;
+
+    match c {
+        .Red => print(0),
+        .Green => print(1),
+        .Blue => print(2),
+    }
+}
