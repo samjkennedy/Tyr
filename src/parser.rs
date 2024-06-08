@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-use crate::lexer::{Span, Token, TokenKind};
+use crate::{
+    lexer::{Span, Token, TokenKind},
+};
 
 #[derive(Debug, Clone)]
 pub enum TypeDefinition {
@@ -64,6 +66,13 @@ pub enum Statement {
         body: Box<Statement>,
         else_clause: Option<Box<Statement>>,
     },
+    Guard {
+        guard_keyword: Token,
+        condition: Expression,
+        else_keyword: Option<Token>,
+        body: Box<Statement>,
+        capture: Option<Box<Statement>>,
+    },
     Else {
         else_keyword: Token,
         body: Box<Statement>,
@@ -80,6 +89,14 @@ pub enum Statement {
         in_keyword: Token,
         iterable: Expression,
         body: Box<Statement>,
+    },
+    Break {
+        break_keyword: Token,
+        semicolon: Token,
+    },
+    Continue {
+        continue_keyword: Token,
+        semicolon: Token,
     },
     Match {
         match_keyword: Token,
@@ -108,6 +125,11 @@ pub enum Statement {
         lines: Vec<Token>,
         close_curly: Token,
     },
+    Capture {
+        open_pipe: Token,
+        identifier: Token,
+        close_pipe: Token,
+    },
 }
 
 impl Statement {
@@ -133,6 +155,11 @@ impl Statement {
                 body,
                 ..
             } => Span::of(&while_keyword.span, &body.get_span()),
+            Statement::Guard {
+                guard_keyword,
+                body,
+                ..
+            } => Span::of(&guard_keyword.span, &body.get_span()),
             Statement::If {
                 if_keyword,
                 body,
@@ -177,6 +204,19 @@ impl Statement {
                 close_curly,
                 ..
             } => Span::of(&raw_keyword.span, &close_curly.span),
+            Statement::Break {
+                break_keyword,
+                semicolon,
+            } => Span::of(&break_keyword.span, &semicolon.span),
+            Statement::Continue {
+                continue_keyword,
+                semicolon,
+            } => Span::of(&continue_keyword.span, &semicolon.span),
+            Statement::Capture {
+                open_pipe,
+                close_pipe,
+                ..
+            } => Span::of(&open_pipe.span, &close_pipe.span),
         }
     }
 }
@@ -221,6 +261,10 @@ pub enum TypeExpression {
         carot: Token,
         reference_type: Box<TypeExpression>,
     },
+    Optional {
+        question: Token,
+        reference_type: Box<TypeExpression>,
+    },
     Array {
         open_square: Token,
         size: Token,
@@ -249,6 +293,10 @@ impl TypeExpression {
                 carot,
                 reference_type,
             } => Span::of(&carot.span, &reference_type.get_span()),
+            TypeExpression::Optional {
+                question,
+                reference_type,
+            } => Span::of(&question.span, &reference_type.get_span()),
             TypeExpression::Array {
                 open_square,
                 element_type,
@@ -348,6 +396,9 @@ impl Pattern {
 
 #[derive(Debug, Clone)]
 pub enum Expression {
+    NoneLiteral {
+        span: Span,
+    },
     IntLiteral {
         value: usize,
         span: Span,
@@ -457,6 +508,10 @@ pub enum Expression {
         expression: Box<Expression>,
         carot: Token,
     },
+    UnwrapOptional {
+        expression: Box<Expression>,
+        question: Token,
+    },
     MethodCall {
         callee: Box<Expression>,
         dot: Token,
@@ -482,6 +537,12 @@ pub enum Expression {
         close_paren: Token,
         arrow: Token,
         body: Box<Expression>,
+    },
+    Guard {
+        guard_keyword: Token,
+        expression: Box<Expression>,
+        else_keyword: Token,
+        body: Box<Statement>,
     },
 }
 
@@ -563,6 +624,10 @@ impl Expression {
             Expression::Dereference { expression, carot } => {
                 Span::of(&expression.get_span(), &carot.span)
             }
+            Expression::UnwrapOptional {
+                expression,
+                question,
+            } => Span::of(&expression.get_span(), &question.span),
             Expression::UnionLiteral {
                 left, dot, kind, ..
             } => match left {
@@ -577,6 +642,12 @@ impl Expression {
             Expression::Lambda {
                 open_paren, body, ..
             } => Span::of(&open_paren.span, &body.get_span()),
+            Expression::NoneLiteral { span } => span.clone(),
+            Expression::Guard {
+                guard_keyword,
+                body,
+                ..
+            } => Span::of(&guard_keyword.span, &body.get_span()),
         }
     }
 }
@@ -679,7 +750,26 @@ impl Parser {
             TokenKind::FnKeyword => self.parse_fn_declaration(),
             TokenKind::WhileKeyword => self.parse_while_loop(),
             TokenKind::IfKeyword => self.parse_if(),
+            TokenKind::GuardKeyword => self.parse_guard(),
             TokenKind::ForKeyword => self.parse_for(),
+            TokenKind::BreakKeyword => {
+                let break_keyword = self.expect_token(TokenKind::BreakKeyword)?;
+                let semicolon = self.expect_token(TokenKind::Semicolon)?;
+
+                Ok(Statement::Break {
+                    break_keyword,
+                    semicolon,
+                })
+            }
+            TokenKind::ContinueKeyword => {
+                let continue_keyword = self.expect_token(TokenKind::ContinueKeyword)?;
+                let semicolon = self.expect_token(TokenKind::Semicolon)?;
+
+                Ok(Statement::Continue {
+                    continue_keyword,
+                    semicolon,
+                })
+            }
             TokenKind::MatchKeyword => self.parse_match(),
             TokenKind::RawKeyword => {
                 let raw_keyword = self.expect_token(TokenKind::RawKeyword)?;
@@ -883,7 +973,10 @@ impl Parser {
     fn parse_while_loop(&mut self) -> Result<Statement, ParseError> {
         let while_keyword = self.expect_token(TokenKind::WhileKeyword)?;
         let condition = self.parse_binary_expression(0)?;
+        let before = self.allow_struct_literals;
+        self.allow_struct_literals = false;
         let body = self.parse_statement()?;
+        self.allow_struct_literals = before;
 
         Ok(Statement::While {
             while_keyword,
@@ -911,6 +1004,62 @@ impl Parser {
             condition,
             body: Box::new(body),
             else_clause,
+        })
+    }
+
+    fn parse_guard(&mut self) -> Result<Statement, ParseError> {
+        let guard_keyword = self.expect_token(TokenKind::GuardKeyword)?;
+        let before = self.allow_struct_literals;
+        self.allow_struct_literals = false;
+        //Higher precedence to prevent parsing | as bitwise or instead of a capture
+        let condition = self.parse_binary_expression(5)?;
+
+        let mut capture = if self.get_head()?.kind == TokenKind::Pipe {
+            let open_pipe = self.expect_token(TokenKind::Pipe)?;
+            let identifier = self.expect_identifier()?;
+            let close_pipe = self.expect_token(TokenKind::Pipe)?;
+            Some(Box::new(Statement::Capture {
+                open_pipe,
+                identifier,
+                close_pipe,
+            }))
+        } else {
+            None
+        };
+
+        let else_keyword = if self.get_head()?.kind == TokenKind::ElseKeyword {
+            Some(self.expect_token(TokenKind::ElseKeyword)?)
+        } else {
+            None
+        };
+
+        if self.get_head()?.kind == TokenKind::Pipe {
+            if capture.is_none() {
+                let open_pipe = self.expect_token(TokenKind::Pipe)?;
+                let identifier = self.expect_identifier()?;
+                let close_pipe = self.expect_token(TokenKind::Pipe)?;
+                capture = Some(Box::new(Statement::Capture {
+                    open_pipe,
+                    identifier,
+                    close_pipe,
+                }));
+            } else {
+                return Err(ParseError::UnexpectedToken(
+                    TokenKind::Pipe,
+                    self.get_head()?.span.clone(),
+                ));
+            }
+        }
+
+        let body = self.parse_statement()?;
+        self.allow_struct_literals = before;
+
+        Ok(Statement::Guard {
+            guard_keyword,
+            condition,
+            capture,
+            else_keyword,
+            body: Box::new(body),
         })
     }
 
@@ -1179,6 +1328,14 @@ impl Parser {
                     reference_type: Box::new(reference_type),
                 })
             }
+            TokenKind::Question => {
+                let question = self.expect_token(TokenKind::Question)?;
+                let reference_type = self.parse_type_expression()?;
+                Ok(TypeExpression::Optional {
+                    question,
+                    reference_type: Box::new(reference_type),
+                })
+            }
             TokenKind::TypeLiteral(_) => {
                 let type_literal = self.expect_type_literal()?;
                 Ok(TypeExpression::Basic(type_literal))
@@ -1394,6 +1551,15 @@ impl Parser {
                     *next_token = self.get_head()?.clone();
                     lookahead
                 }
+                TokenKind::Question => {
+                    let question = self.expect_token(TokenKind::Question)?;
+                    let lookahead = Expression::UnwrapOptional {
+                        expression: Box::new(parsed),
+                        question,
+                    };
+                    *next_token = self.get_head()?.clone();
+                    lookahead
+                }
                 TokenKind::AsKeyword => {
                     let as_keyword = self.expect_token(TokenKind::AsKeyword)?;
                     let destination_type = self.parse_type_expression()?;
@@ -1535,6 +1701,9 @@ impl Parser {
         self.cursor += 1;
 
         match &token.kind {
+            TokenKind::NoneKeyword => Ok(Expression::NoneLiteral {
+                span: token.span.clone(),
+            }),
             TokenKind::IntLiteral(value) => Ok(Expression::IntLiteral {
                 value: *value,
                 span: token.span.clone(),
@@ -1643,6 +1812,35 @@ impl Parser {
                     left: None,
                     dot,
                     member,
+                };
+
+                let mut next_token = self.get_head()?.clone();
+
+                self.lookahead(parsed, &mut next_token)
+            }
+
+            TokenKind::GuardKeyword => {
+                //guard expression! else is mandatory!
+                let guard_keyword = token;
+                let expression = self.parse_binary_expression(5)?;
+
+                if self.get_head()?.kind == TokenKind::Pipe {
+                    todo!("Captures in positive guard expressions")
+                }
+
+                let else_keyword = self.expect_token(TokenKind::ElseKeyword)?;
+
+                if self.get_head()?.kind == TokenKind::Pipe {
+                    todo!("Captures in negative guard expressions")
+                }
+
+                let body = self.parse_statement()?;
+
+                let parsed = Expression::Guard {
+                    guard_keyword,
+                    expression: Box::new(expression),
+                    else_keyword,
+                    body: Box::new(body),
                 };
 
                 let mut next_token = self.get_head()?.clone();

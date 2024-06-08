@@ -2,6 +2,7 @@ use c_emitter::Emitter;
 use colored::Colorize;
 use lexer::{lex, LexError, Span};
 use parser::{ParseError, Parser};
+use rewriter::Rewriter;
 use std::{
     env,
     fs::{self, File},
@@ -14,6 +15,7 @@ use type_checker::{TypeChecker, TypeError};
 pub mod c_emitter;
 pub mod lexer;
 pub mod parser;
+pub mod rewriter;
 pub mod type_checker;
 
 //MAIN
@@ -132,13 +134,16 @@ fn main() {
     let directory_path = pathbuf.as_os_str().to_str().expect("todo").to_owned();
     let mut type_checker = TypeChecker::new(directory_path);
 
-    let module = match type_checker.type_check(statements) {
+    let mut module = match type_checker.type_check(statements) {
         Ok(module) => module,
         Err(e) => {
             display_type_error(e, &source);
             exit(0);
         }
     };
+
+    let mut rewriter = Rewriter::new();
+    module.functions = rewriter.rewrite(module.functions);
 
     let base_name = Path::new(path)
         .file_stem()

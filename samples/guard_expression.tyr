@@ -1,0 +1,25 @@
+fn maybe(x: i32): ?i32 {
+    if x < 5 return x;
+    else return none;
+}
+
+fn unwrap_or(x: ?i32, or: i32): i32 {
+    return guard x else {
+        return or;
+    };
+}
+
+fn main() {
+    for i in 0..10 {
+        j: i32 = guard maybe(i) else {
+            print("got none");
+            continue;
+        };
+        print(j);
+    }
+
+    k: ?i32 = none;
+    v := guard k else return;;
+
+    print(v);
+}

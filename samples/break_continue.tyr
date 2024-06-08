@@ -1,0 +1,15 @@
+fn main() {
+    
+    for i in 0..100 {
+        if i > 20 && i < 80 {
+            continue;
+        }
+        print(i);
+    }
+    for i in 0..100 {
+        print(i);
+        if i > 20 {
+            break;
+        }
+    }
+}

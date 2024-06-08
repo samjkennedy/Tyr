@@ -1,0 +1,21 @@
+type ArithmeticError : enum {
+    DivideByZero
+}
+
+fn div(a, b: i32): !i32 {
+    if b == 0 {
+        throw ArithmeticError.Foo;
+    }
+    return a/b;
+}
+
+fn main() {
+    x := 10;
+    for i in 0..10 {
+        res := guard div(x, i) else |err| {
+            print("Error!");
+            continue;
+        };
+        print(res);
+    }
+}

@@ -1,0 +1,28 @@
+fn alloc(size: u64): ?[]u8 {
+    bytes: ?[]u8 = nil;
+    raw {
+        "bytes = malloc(sizeof(bytes));"
+        "bytes->data = calloc(size, sizeof(char *));"
+        "bytes->len = size;"
+    }
+    return bytes;
+}
+
+fn dealloc(bytes: ^[]u8) {
+    raw {
+        "free(bytes);"
+    }
+}
+
+fn main() {
+    data: []u8 = guard alloc(10) else {
+        print("buy more RAM lol!");
+        return;
+    };
+
+    print(data.len);
+    for i in data {
+        print(i);
+    }
+    dealloc(^data); //TODO This should be done automagically by the lifetime of the var
+}
