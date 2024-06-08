@@ -1,0 +1,20 @@
+fn maybe(x: i32): ?i32 {
+    if x > 5 {
+        return 10;
+    } else {
+        return nil;
+    } 
+}
+
+fn print_option(x: ?i32) {
+    if x == nil {
+        print(x?);
+    } else {
+        print("nil");
+    }
+}
+
+fn main() {
+    i := maybe(3);
+    print_option(i);
+}

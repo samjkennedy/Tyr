@@ -18,6 +18,7 @@ pub enum TokenKind {
     Percent,
     Equals,
     EqualsEquals,
+    Question,
     Bang,
     BangEquals,
     OpenAngle,
@@ -48,6 +49,7 @@ pub enum TokenKind {
     ReturnKeyword,
     WhileKeyword,
     IfKeyword,
+    GuardKeyword,
     ElseKeyword,
     TypeKeyword,
     StructKeyword,
@@ -55,11 +57,14 @@ pub enum TokenKind {
     UnionKeyword,
     ForKeyword,
     InKeyword,
+    BreakKeyword,
+    ContinueKeyword,
     MatchKeyword,
     DeferKeyword,
     UsesKeyword,
     AsKeyword,
     RawKeyword,
+    NoneKeyword,
 }
 
 #[derive(Debug, Clone)]
@@ -202,6 +207,10 @@ pub fn lex(source: &String) -> Result<Vec<Token>, LexError> {
                         }
                     }
                 }
+                '?' => Token {
+                    kind: TokenKind::Question,
+                    span: Span { offset, length: 1 },
+                },
                 '!' => {
                     let peek = source.chars().nth(offset + 1);
                     if peek.is_some() && peek.unwrap() == '=' {
@@ -444,13 +453,14 @@ pub fn lex(source: &String) -> Result<Vec<Token>, LexError> {
 
                 x if char::is_alphabetic(x) || x == '_' => {
                     let mut end_offset = offset;
-                    while end_offset < source.len()
-                        && (source.chars().nth(end_offset).unwrap().is_alphanumeric()
-                            || source.chars().nth(end_offset).unwrap() == '_')
-                    //TODO: this is horrendous
-                    {
+                    while end_offset < source.len() {
+                        let ch = source.as_bytes()[end_offset] as char;
+                        if !ch.is_alphanumeric() && ch != '_' {
+                            break;
+                        }
                         end_offset += 1;
                     }
+
                     let text: String = source[offset..end_offset].to_string();
                     let length = text.len();
 
@@ -461,6 +471,7 @@ pub fn lex(source: &String) -> Result<Vec<Token>, LexError> {
                         "return" => TokenKind::ReturnKeyword,
                         "while" => TokenKind::WhileKeyword,
                         "if" => TokenKind::IfKeyword,
+                        "guard" => TokenKind::GuardKeyword,
                         "else" => TokenKind::ElseKeyword,
                         "type" => TokenKind::TypeKeyword,
                         "struct" => TokenKind::StructKeyword,
@@ -468,11 +479,14 @@ pub fn lex(source: &String) -> Result<Vec<Token>, LexError> {
                         "union" => TokenKind::UnionKeyword,
                         "for" => TokenKind::ForKeyword,
                         "in" => TokenKind::InKeyword,
+                        "break" => TokenKind::BreakKeyword,
+                        "continue" => TokenKind::ContinueKeyword,
                         "match" => TokenKind::MatchKeyword,
                         "defer" => TokenKind::DeferKeyword,
                         "uses" => TokenKind::UsesKeyword,
                         "as" => TokenKind::AsKeyword,
                         "raw" => TokenKind::RawKeyword,
+                        "none" => TokenKind::NoneKeyword,
                         //TypeLiterals
                         "bool" | "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64"
                         | "f64" | "string" | "char" => TokenKind::TypeLiteral(text),

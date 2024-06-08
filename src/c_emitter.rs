@@ -6,8 +6,7 @@ use std::{
 use crate::{
     parser::{BinaryOperator, UnaryOperator},
     type_checker::{
-        CheckedExpression, CheckedPattern, CheckedStatement, CheckedUnionVariantKind, Module,
-        TypeKind,
+        CheckedExpression, CheckedPattern, CheckedStatement, CheckedUnionVariantKind, Module, TypeKind,
     },
 };
 
@@ -24,10 +23,10 @@ impl Emitter {
         self.out_file.write_all(b"#include <stdio.h>\n")?;
         self.out_file.write_all(b"#include <stdbool.h>\n")?;
         self.out_file.write_all(b"#include <stdint.h>\n")?;
+        self.out_file.write_all(b"#include <stdlib.h>\n")?;
         self.out_file.write_all(
             b"void print_bool(bool b) { b ? printf(\"true\\n\") : printf(\"false\\n\"); }\n",
         )?;
-        //self.out_file.write_all(b"#include <stdlib.h>\n")?;
         self.out_file.write_all(b"")?;
 
         for type_definition in module.types {
@@ -80,6 +79,9 @@ impl Emitter {
             }
             TypeKind::Function { .. } => {
                 todo!()
+            }
+            TypeKind::Optional(type_kind) => {
+                format!("option_{}", type_kind) //these types were created in the type checker so do not use the c-type names
             }
         }
     }
@@ -150,13 +152,9 @@ impl Emitter {
                             todo!("Catch this at the type check stage")
                         }
                     }
-                    if let CheckedStatement::Block { statements } = *body {
-                        for statement in statements {
-                            self.emit_statement(statement)?;
-                        }
-                        writeln!(self.out_file, "return 0;")?;
-                        writeln!(self.out_file, "}}")?;
-                    }
+                    self.emit_statement(*body)?;
+                    writeln!(self.out_file, "return 0;")?;
+                    writeln!(self.out_file, "}}")?;
                     return Ok(());
                 }
 
@@ -188,17 +186,14 @@ impl Emitter {
                 }
                 write!(self.out_file, ") {{",)?;
                 match *body {
-                    CheckedStatement::Block { statements } => {
-                        for statement in statements {
-                            self.emit_statement(statement)?;
-                        }
-                        writeln!(self.out_file, "}}")?;
-                    }
                     CheckedStatement::Expression { expression } => {
                         self.emit_expression(&expression)?;
                         writeln!(self.out_file, ";}}")?;
                     }
-                    _ => (),
+                    _ => {
+                        self.emit_statement(*body)?;
+                        writeln!(self.out_file, "}}")?;
+                    }
                 }
                 Ok(())
             }
@@ -244,6 +239,27 @@ impl Emitter {
                 write!(self.out_file, "else {{")?;
                 self.emit_statement(*body)?;
                 write!(self.out_file, "}}")?;
+                Ok(())
+            }
+            CheckedStatement::Guard {
+                condition,
+                capture,
+                body,
+                condition_false,
+            } => {
+                write!(self.out_file, "if (")?;
+                if condition_false {
+                    write!(self.out_file, "!")?;
+                }
+                self.emit_expression(&condition)?;
+
+                write!(self.out_file, ") {{")?;
+                if capture.is_some() {
+                    todo!("handle captures in guard statements")
+                }
+                self.emit_statement(*body)?;
+                write!(self.out_file, "}}")?;
+
                 Ok(())
             }
             CheckedStatement::TypeDefinition { type_kind } => match type_kind {
@@ -344,11 +360,7 @@ impl Emitter {
                     CheckedExpression::Binary { .. } => unreachable!(),
                     CheckedExpression::Variable(variable) => match variable.type_kind {
                         TypeKind::Array { size, element_type } => {
-                            write!(
-                                self.out_file,
-                                "for (int it = {}.offset; it < {}; it++) {{",
-                                variable.name, size
-                            )?;
+                            write!(self.out_file, "for (int it = 0; it < {}; it++) {{", size)?;
                             write!(
                                 self.out_file,
                                 "{} {} = {}[it];",
@@ -362,8 +374,8 @@ impl Emitter {
                         TypeKind::Slice { element_type } => {
                             write!(
                                 self.out_file,
-                                "for (int it = {}.offset; it < {}.len; it++) {{",
-                                variable.name, variable.name
+                                "for (int it = 0; it < {}.len; it++) {{",
+                                variable.name
                             )?;
                             write!(
                                 self.out_file,
@@ -458,12 +470,26 @@ impl Emitter {
                 }
                 Ok(())
             }
+            CheckedStatement::Break => writeln!(self.out_file, "break;"),
+            CheckedStatement::Continue => writeln!(self.out_file, "continue;"),
         }
     }
 
     fn emit_expression(&mut self, expression: &CheckedExpression) -> io::Result<()> {
         match expression {
-            CheckedExpression::IntLiteral { value, .. } => write!(self.out_file, "{}", value),
+            CheckedExpression::IntLiteral { value, type_kind } => {
+                match type_kind {
+                    TypeKind::Optional(inner_type) => {
+                        write!(
+                            self.out_file,
+                            "(option_{}){{.tag = 1, .option_{}.Some.tag = 1, .option_{}.Some.value = {}}}",
+                            inner_type, inner_type, inner_type, value
+                        )?;
+                    }
+                    _ => write!(self.out_file, "{}", value)?,
+                }
+                Ok(())
+            }
             CheckedExpression::FloatLiteral { value, .. } => write!(self.out_file, "{}", value),
             CheckedExpression::BoolLiteral { value } => write!(self.out_file, "{}", value),
             CheckedExpression::CharLiteral { value } => write!(self.out_file, "'{}'", value),
@@ -475,14 +501,17 @@ impl Emitter {
                 for (i, variable) in variables.iter().enumerate() {
                     write!(
                         self.out_file,
-                        "{} = ",
+                        "{}",
                         self.get_c_variable_decl(
                             &variable.name,
                             &variable.type_kind,
                             variable.mutable
                         )
                     )?;
-                    self.emit_expression(initialiser)?;
+                    if let Some(initialiser) = initialiser {
+                        writeln!(self.out_file, " = ")?;
+                        self.emit_expression(initialiser)?;
+                    }
                     if i < variables.len() - 1 {
                         writeln!(self.out_file, ";")?;
                     }
@@ -496,45 +525,7 @@ impl Emitter {
             } => {
                 if function.name == "print" {
                     let arg = arguments.first().unwrap();
-                    match arg.get_type() {
-                        TypeKind::Unit => todo!(),
-                        TypeKind::Bool => write!(self.out_file, "print_bool(")?,
-                        TypeKind::I8 => write!(self.out_file, "printf(\"%d\\n\", ")?,
-                        TypeKind::I16 => write!(self.out_file, "printf(\"%hi\\n\", ")?,
-                        TypeKind::I32 => write!(self.out_file, "printf(\"%li\\n\", ")?,
-                        TypeKind::I64 => write!(self.out_file, "printf(\"%lli\\n\", ")?,
-                        TypeKind::U8 => write!(self.out_file, "printf(\"%d\\n\", ")?,
-                        TypeKind::U16 => write!(self.out_file, "printf(\"%hu\\n\", ")?,
-                        TypeKind::U32 => write!(self.out_file, "printf(\"%lu\\n\", ")?,
-                        TypeKind::U64 => write!(self.out_file, "printf(\"%llu\\n\", ")?,
-                        TypeKind::F32 => write!(self.out_file, "printf(\"%g\\n\", ")?,
-                        TypeKind::F64 => write!(self.out_file, "printf(\"%lg\\n\", ")?,
-                        TypeKind::F128 => write!(self.out_file, "printf(\"%Lg\\n\", ")?,
-                        TypeKind::Char => write!(self.out_file, "printf(\"%c\\n\", ")?,
-                        TypeKind::String => write!(self.out_file, "printf(\"%s\\n\", ")?,
-                        TypeKind::Struct { .. }
-                        | TypeKind::Union { .. }
-                        | TypeKind::UnionVariant { .. } => todo!(),
-                        TypeKind::Enum { name, members: _ } => {
-                            write!(self.out_file, "printf(\"%s\\n\", {}_Values[", name)?;
-                            self.emit_expression(arg)?;
-                            write!(self.out_file, "])")?;
-                            return Ok(());
-                        }
-                        TypeKind::Type { type_kind: _ } => todo!(),
-                        TypeKind::Range { type_kind: _ } => todo!(),
-                        TypeKind::Array {
-                            size: _,
-                            element_type: _,
-                        } => todo!(),
-                        TypeKind::Slice { element_type: _ } => todo!(),
-                        TypeKind::Pointer { .. } => write!(self.out_file, "printf(\"%zu\\n\", ")?,
-                        TypeKind::Function {
-                            inputs: _,
-                            output: _,
-                        } => todo!(),
-                        TypeKind::FileHandle => todo!(),
-                    }
+                    self.emit_print_format(arg)?;
                     self.emit_expression(arg)?;
                     write!(self.out_file, ")")?;
                     Ok(())
@@ -759,21 +750,27 @@ impl Emitter {
                 type_kind,
                 elements,
             } => {
-                if let TypeKind::Array { .. } = type_kind {
-                    // write!(
-                    //     self.out_file,
-                    //     "({}[{}])",
-                    //     Self::get_c_type(element_type),
-                    //     size
-                    // )?;
-                    write!(self.out_file, "{{")?;
-                    for element in elements {
-                        self.emit_expression(element)?;
-                        write!(self.out_file, ", ")?;
+                match type_kind {
+                    TypeKind::Array { .. } => {
+                        // write!(
+                        //     self.out_file,
+                        //     "({}[{}])",
+                        //     Self::get_c_type(element_type),
+                        //     size
+                        // )?;
+                        write!(self.out_file, "{{")?;
+                        for element in elements {
+                            self.emit_expression(element)?;
+                            write!(self.out_file, ", ")?;
+                        }
+                        write!(self.out_file, "}}")?;
                     }
-                    write!(self.out_file, "}}")?;
-                } else {
-                    unreachable!()
+                    TypeKind::Slice { .. } => {
+                        if !elements.is_empty() {
+                            todo!()
+                        }
+                    }
+                    _ => unreachable!(),
                 }
                 Ok(())
             }
@@ -845,7 +842,84 @@ impl Emitter {
                 Ok(())
             }
             CheckedExpression::Lambda { name, .. } => write!(self.out_file, "{}", name),
+            CheckedExpression::NoneLiteral(type_kind) => {
+                //(option_i32){.tag = 0, .option_i32.None.tag = 0};
+                write!(
+                    self.out_file,
+                    "(option_{}){{.tag = 0, .option_{}.None.tag = 0}}",
+                    type_kind, type_kind
+                )?;
+                Ok(())
+            }
+            CheckedExpression::UnwrapOptional { expression, .. } => {
+                if let TypeKind::Optional(inner_type) = expression.get_type() {
+                    write!(self.out_file, "(")?;
+                    self.emit_expression(expression)?;
+                    write!(self.out_file, ".option_{}.Some.value)", inner_type)?;
+                    Ok(())
+                } else {
+                    unreachable!()
+                }
+            }
+            CheckedExpression::Guard { .. } => unreachable!("This should have be rewritten out"),
+            CheckedExpression::Some { expression } => {
+                let expression_type = expression.get_type();
+                //Assuming we managed to create the right type
+                //(option_i32){.tag = 1, .option_i32.Some.tag = 1, .option_i32.Some.value = x};
+                write!(
+                    self.out_file,
+                    "(option_{}){{.tag = 1, .option_{}.Some.tag = 1, .option_{}.Some.value =",
+                    expression_type, expression_type, expression_type
+                )?;
+                self.emit_expression(expression)?;
+                write!(self.out_file, "}}")?;
+                Ok(())
+            }
         }
+    }
+
+    fn emit_print_format(&mut self, arg: &CheckedExpression) -> Result<(), io::Error> {
+        match arg.get_type() {
+            TypeKind::Unit => todo!(),
+            TypeKind::Bool => write!(self.out_file, "print_bool(")?,
+            TypeKind::I8 => write!(self.out_file, "printf(\"%d\\n\", ")?,
+            TypeKind::I16 => write!(self.out_file, "printf(\"%hi\\n\", ")?,
+            TypeKind::I32 => write!(self.out_file, "printf(\"%li\\n\", ")?,
+            TypeKind::I64 => write!(self.out_file, "printf(\"%lli\\n\", ")?,
+            TypeKind::U8 => write!(self.out_file, "printf(\"%d\\n\", ")?,
+            TypeKind::U16 => write!(self.out_file, "printf(\"%hu\\n\", ")?,
+            TypeKind::U32 => write!(self.out_file, "printf(\"%lu\\n\", ")?,
+            TypeKind::U64 => write!(self.out_file, "printf(\"%llu\\n\", ")?,
+            TypeKind::F32 => write!(self.out_file, "printf(\"%g\\n\", ")?,
+            TypeKind::F64 => write!(self.out_file, "printf(\"%lg\\n\", ")?,
+            TypeKind::F128 => write!(self.out_file, "printf(\"%Lg\\n\", ")?,
+            TypeKind::Char => write!(self.out_file, "printf(\"%c\\n\", ")?,
+            TypeKind::String => write!(self.out_file, "printf(\"%s\\n\", ")?,
+            TypeKind::Struct { .. } | TypeKind::Union { .. } | TypeKind::UnionVariant { .. } => {
+                todo!()
+            }
+            TypeKind::Enum { name, members: _ } => {
+                write!(self.out_file, "printf(\"%s\\n\", {}_Values[", name)?;
+                self.emit_expression(arg)?;
+                write!(self.out_file, "])")?;
+                return Ok(());
+            }
+            TypeKind::Type { type_kind: _ } => todo!(),
+            TypeKind::Range { type_kind: _ } => todo!(),
+            TypeKind::Array {
+                size: _,
+                element_type: _,
+            } => todo!(),
+            TypeKind::Slice { element_type: _ } => todo!(),
+            TypeKind::Pointer { .. } => write!(self.out_file, "printf(\"%zu\\n\", ")?,
+            TypeKind::Function {
+                inputs: _,
+                output: _,
+            } => todo!(),
+            TypeKind::FileHandle => todo!(),
+            TypeKind::Optional(_type_kind) => todo!(),
+        };
+        Ok(())
     }
 
     fn emit_match_arm(

@@ -1,0 +1,8 @@
+fn main() {
+    x := [7]?i32 {15, none, 5, none, 18, 16, none};
+
+    for i in x if i |val| {
+        print(val);
+    }
+    
+}
